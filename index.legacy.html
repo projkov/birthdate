@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TERMINAL // BIRTHDATE</title>
+  <style>
+    :root {
+      /* spacemacs-theme (dark) palette */
+      --bg: #292b2e;
+      --fg: #4f97d7;
+      /* keyword blue */
+      --fg-dim: #686868;
+      /* base-dim */
+      --accent: #2d9574;
+      /* comment/string green */
+      --func: #bc6ec5;
+      /* func magenta */
+      --warn: #dc752f;
+      /* war orange */
+      --err: #e0211d;
+      /* err red */
+      --glow: 0 0 2px rgba(79, 151, 215, 0.8), 0 0 6px rgba(79, 151, 215, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Courier New", Monaco, monospace;
+      height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 16px;
+      position: relative;
+    }
+
+    /* CRT scanline + vignette overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(to bottom,
+          rgba(0, 0, 0, 0.0) 0px,
+          rgba(0, 0, 0, 0.15) 1px,
+          rgba(0, 0, 0, 0.0) 2px);
+      z-index: 2;
+      mix-blend-mode: multiply;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.55) 100%);
+      z-index: 3;
+    }
+
+    #screen {
+      flex: 1;
+      max-width: 820px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    pre#banner {
+      color: var(--fg);
+      text-shadow: var(--glow);
+      font-size: clamp(8px, 2.4vw, 14px);
+      line-height: 1.15;
+      margin: 0 0 12px 0;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    #log {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.55;
+      text-shadow: var(--glow);
+      padding-bottom: 8px;
+    }
+
+    #log .line {
+      margin: 0 0 2px 0;
+    }
+
+    #log .dim {
+      color: var(--fg-dim);
+      text-shadow: none;
+    }
+
+    #log .accent {
+      color: var(--accent);
+      text-shadow: 0 0 4px rgba(45, 149, 116, 0.6);
+    }
+
+    #log .warn {
+      color: var(--warn);
+      font-weight: bold;
+      text-shadow: 0 0 4px rgba(220, 117, 47, 0.5);
+    }
+
+    #log .err {
+      color: var(--err);
+      font-weight: bold;
+      text-shadow: 0 0 4px rgba(224, 33, 29, 0.6);
+    }
+
+    .glitching {
+      animation: glitchFlicker 0.12s steps(2, end) infinite;
+    }
+
+    @keyframes glitchFlicker {
+      0% {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      25% {
+        opacity: 0.55;
+        transform: translateX(-2px);
+      }
+
+      50% {
+        opacity: 1;
+        transform: translateX(2px);
+      }
+
+      75% {
+        opacity: 0.6;
+        transform: translateX(-1px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    #log .prompt-echo::before {
+      content: "guest@birthdate:~$ ";
+      color: var(--accent);
+    }
+
+    #inputRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      padding: 6px 0 4px 0;
+      border-top: 1px solid rgba(79, 151, 215, 0.15);
+      margin-top: 6px;
+    }
+
+    #inputRow .promptLabel {
+      color: var(--accent);
+      text-shadow: 0 0 4px rgba(0, 136, 51, 0.6);
+      white-space: nowrap;
+    }
+
+    #cmdInput {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--fg);
+      font-family: inherit;
+      font-size: inherit;
+      text-shadow: var(--glow);
+      caret-color: transparent;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--fg);
+      box-shadow: var(--glow);
+      margin-left: 2px;
+      animation: blink 1s steps(1) infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes blink {
+
+      0%,
+      49% {
+        opacity: 1;
+      }
+
+      50%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    #actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--fg-dim);
+      color: var(--fg);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 8px 12px;
+      cursor: pointer;
+      text-shadow: var(--glow);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      border-color: var(--func);
+      background: rgba(188, 110, 197, 0.1);
+    }
+
+    .btn:active {
+      background: rgba(188, 110, 197, 0.2);
+    }
+
+    footer {
+      text-align: center;
+      font-size: 10px;
+      color: var(--fg-dim);
+      margin-top: 16px;
+      letter-spacing: 0.05em;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+
+      #log {
+        font-size: 13px;
+      }
+
+      #inputRow {
+        font-size: 13px;
+      }
+
+      .btn {
+        flex: 1 1 calc(50% - 4px);
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="screen">
+    <pre id="banner">=== B I R T H D A T E ===
+      TERMINAL v<span id="verNum">?</span></pre>
+
+    <div id="log"></div>
+
+    <div id="inputRow">
+      <span class="promptLabel">guest@birthdate:~$</span>
+      <input id="cmdInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus />
+      <span class="cursor"></span>
+    </div>
+
+    <div id="actions">
+      <button class="btn" data-cmd="help">Help</button>
+      <button class="btn" data-cmd="whoami">Whoami</button>
+      <button class="btn" data-cmd="treats">Treats</button>
+      <button class="btn" data-cmd="github">GitHub</button>
+      <button class="btn" data-cmd="linkedin">LinkedIn</button>
+      <button class="btn" data-cmd="clear">Clear</button>
+    </div>
+
+    <footer>SESSION ESTABLISHED :: PRESS KEYS TO INTERACT</footer>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var GITHUB_URL = "#";
+      var LINKEDIN_URL = "#";
+
+      var log = document.getElementById("log");
+      var input = document.getElementById("cmdInput");
+
+      var BIRTH_DATE = new Date(1993, 7, 16); // 16.08.1993
+
+      function getAgeInfo() {
+        var now = new Date();
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var years = today.getFullYear() - BIRTH_DATE.getFullYear();
+        var anniversary = new Date(today.getFullYear(), BIRTH_DATE.getMonth(), BIRTH_DATE.getDate());
+        if (anniversary > today) {
+          years--;
+          anniversary = new Date(today.getFullYear() - 1, BIRTH_DATE.getMonth(), BIRTH_DATE.getDate());
+        }
+        var msPerDay = 24 * 60 * 60 * 1000;
+        var days = Math.round((today - anniversary) / msPerDay);
+
+        var months = (today.getFullYear() - anniversary.getFullYear()) * 12 + (today.getMonth() - anniversary.getMonth());
+        if (today.getDate() < anniversary.getDate()) {
+          months--;
+        }
+
+        return { years: years, days: days, months: months };
+      }
+
+      function formatVersion(info) {
+        return info.years + "." + info.months + "." + info.days;
+      }
+
+      /* ---- i18n: only user-facing narrative text rotates; system lines/commands stay English ---- */
+      var LANGS = ["en", "ru", "hy"];
+      var currentLangIndex = 0;
+
+      function ruPlural(n, forms) {
+        var mod100 = Math.abs(n) % 100;
+        var mod10 = mod100 % 10;
+        if (mod100 > 10 && mod100 < 20) return forms[2];
+        if (mod10 > 1 && mod10 < 5) return forms[1];
+        if (mod10 === 1) return forms[0];
+        return forms[2];
+      }
+
+      var STRINGS = {
+        en: {
+          greeting: "Hi, my name is Pavel R.",
+          dobLabel: "Initial commit",
+          ageLabel: "AGE",
+          yearWord: function (n) { return n === 1 ? "year" : "years"; },
+          dayWord: function (n) { return n === 1 ? "day" : "days"; },
+          eventHeader: "EVENT NOTICE",
+          treatsLine: "Birthday cookies & candies are available in the kitchen.",
+          allergenLine: "ALLERGEN NOTICE: may contain nuts, dairy, gluten.",
+          helpHint: "Type 'help' to list available commands."
+        },
+        ru: {
+          greeting: "Привет, меня зовут Павел Р.",
+          dobLabel: "Первый коммит",
+          ageLabel: "Возраст",
+          yearWord: function (n) { return ruPlural(n, ["год", "года", "лет"]); },
+          dayWord: function (n) { return ruPlural(n, ["день", "дня", "дней"]); },
+          eventHeader: "АНОНС СОБЫТИЯ",
+          treatsLine: "Праздничное печенье и конфеты — на кухне.",
+          allergenLine: "ВНИМАНИЕ, АЛЛЕРГЕНЫ: может содержать орехи, молочные продукты, глютен.",
+          helpHint: "Введите 'help' для списка доступных команд."
+        },
+        hy: {
+          greeting: "Բարև, իմ անունը Պավել Ռ. է:",
+          dobLabel: "Սկզբնական commit",
+          ageLabel: "Տարիք",
+          yearWord: function () { return "տարի"; },
+          dayWord: function () { return "օր"; },
+          eventHeader: "ՀԱՅՏԱՐԱՐՈՒԹՅՈՒՆ",
+          treatsLine: "Ծննդյան թխվածքաբլիթներն ու կոնֆետները խոհանոցում են:",
+          allergenLine: "ԱԼԵՐԳԵՆՆԵՐԻ ՄԱՍԻՆ. կարող է պարունակել ընկույզ, կաթնամթերք, գլյուտեն:",
+          helpHint: "Մուտքագրեք 'help'՝ հասանելի հրամանների ցանկը տեսնելու համար:"
+        }
+      };
+
+      function formatAgeLine(lang, info) {
+        var t = STRINGS[lang];
+        return t.ageLabel + ": " + info.years + " " + t.yearWord(info.years) + ", " + info.days + " " + t.dayWord(info.days);
+      }
+
+      function textForKey(lang, key) {
+        var t = STRINGS[lang];
+        switch (key) {
+          case "greeting": return t.greeting;
+          case "dob": return t.dobLabel + ": 16.08.1993";
+          case "age": return formatAgeLine(lang, getAgeInfo());
+          case "eventHeader": return "=== " + t.eventHeader + " ===";
+          case "treats": return t.treatsLine;
+          case "allergen": return t.allergenLine;
+          case "helpHint": return t.helpHint;
+          default: return "";
+        }
+      }
+
+      var translatableRegistry = [];
+
+      function registerTranslatable(el, key) {
+        translatableRegistry.push({ el: el, key: key });
+      }
+
+      var GLITCH_CHARS = "!<>-_\\/[]{}=+*^#※▓▒░ЖШЩЙЦЪԾՁՊՌ";
+
+      function glitchSwap(el, newText, duration) {
+        duration = duration || 320;
+        var stepMs = 40;
+        var steps = Math.floor(duration / stepMs);
+        var i = 0;
+        el.classList.add("glitching");
+        var iv = setInterval(function () {
+          var len = Math.max(newText.length, 6);
+          var scrambled = "";
+          for (var c = 0; c < len; c++) {
+            scrambled += GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+          }
+          el.textContent = scrambled;
+          i++;
+          if (i >= steps) {
+            clearInterval(iv);
+            el.textContent = newText;
+            el.classList.remove("glitching");
+          }
+        }, stepMs);
+      }
+
+      function cycleLanguage() {
+        currentLangIndex = (currentLangIndex + 1) % LANGS.length;
+        var lang = LANGS[currentLangIndex];
+        translatableRegistry.forEach(function (entry) {
+          glitchSwap(entry.el, textForKey(lang, entry.key));
+        });
+        scheduleNextCycle();
+      }
+
+      function scheduleNextCycle() {
+        var delay = 15000 + Math.random() * 5000; // 15-20s
+        setTimeout(cycleLanguage, delay);
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function appendLine(html, cls, key) {
+        var div = document.createElement("div");
+        div.className = "line" + (cls ? " " + cls : "");
+        div.innerHTML = html;
+        log.appendChild(div);
+        window.scrollTo(0, document.body.scrollHeight);
+        if (key) {
+          registerTranslatable(div, key);
+        }
+        return div;
+      }
+
+      function appendEcho(cmdText) {
+        appendLine(escapeHtml(cmdText), "prompt-echo");
+      }
+
+      var ageInfo = getAgeInfo();
+      document.getElementById("verNum").textContent = formatVersion(ageInfo);
+
+      /* ---- typewriter boot sequence ---- */
+      var bootLines = [
+        ["SYSTEM INIT ................ OK", "dim", null],
+        ["LOADING KERNEL MODULES ..... OK", "dim", null],
+        ["MOUNTING /dev/birthdate0 .... OK", "dim", null],
+        ["NETWORK LINK ................ ESTABLISHED", "dim", null],
+        ["", null, null],
+        [STRINGS.en.greeting, null, "greeting"],
+        [textForKey("en", "dob"), "dim", "dob"],
+        [formatAgeLine("en", ageInfo), "dim", "age"],
+        ["", null, null],
+        [textForKey("en", "eventHeader"), "accent", "eventHeader"],
+        [STRINGS.en.treatsLine, null, "treats"],
+        [STRINGS.en.allergenLine, "warn", "allergen"],
+        ["", null, null],
+        [STRINGS.en.helpHint, null, "helpHint"]
+      ];
+
+      function typeLine(lineObj, done) {
+        var text = lineObj[0], cls = lineObj[1], key = lineObj[2];
+        var div = document.createElement("div");
+        div.className = "line" + (cls ? " " + cls : "");
+        log.appendChild(div);
+
+        if (text.length === 0) {
+          div.innerHTML = "&nbsp;";
+          return done();
+        }
+
+        var i = 0;
+        var speed = 8; // ms per char
+        (function step() {
+          i++;
+          div.textContent = text.slice(0, i);
+          window.scrollTo(0, document.body.scrollHeight);
+          if (i < text.length) {
+            setTimeout(step, speed);
+          } else {
+            if (key) {
+              registerTranslatable(div, key);
+            }
+            done();
+          }
+        })();
+      }
+
+      function runBoot(lines, idx, onComplete) {
+        if (idx >= lines.length) {
+          onComplete();
+          return;
+        }
+        typeLine(lines[idx], function () {
+          runBoot(lines, idx + 1, onComplete);
+        });
+      }
+
+      var inputRow = document.getElementById("inputRow");
+      inputRow.style.visibility = "hidden";
+
+      runBoot(bootLines, 0, function () {
+        inputRow.style.visibility = "visible";
+        input.focus();
+        scheduleNextCycle();
+      });
+
+      /* ---- command handling ---- */
+      var commands = {
+        help: function () {
+          appendLine("Available commands:", null);
+          appendLine("&nbsp;&nbsp;help      show this list", "dim");
+          appendLine("&nbsp;&nbsp;whoami    show identity info", "dim");
+          appendLine("&nbsp;&nbsp;treats    show event / kitchen notice", "dim");
+          appendLine("&nbsp;&nbsp;github    open GitHub profile", "dim");
+          appendLine("&nbsp;&nbsp;linkedin  open LinkedIn profile", "dim");
+          appendLine("&nbsp;&nbsp;clear     clear the terminal", "dim");
+          appendLine("&nbsp;&nbsp;sudo      nice try", "dim");
+        },
+        whoami: function () {
+          var lang = LANGS[currentLangIndex];
+          appendLine(escapeHtml(textForKey(lang, "greeting")), null, "greeting");
+          appendLine(escapeHtml(textForKey(lang, "dob")), "dim", "dob");
+          appendLine(escapeHtml(textForKey(lang, "age")), "dim", "age");
+        },
+        treats: function () {
+          var lang = LANGS[currentLangIndex];
+          appendLine(escapeHtml(textForKey(lang, "eventHeader")), "accent", "eventHeader");
+          appendLine(escapeHtml(textForKey(lang, "treats")), null, "treats");
+          appendLine(escapeHtml(textForKey(lang, "allergen")), "warn", "allergen");
+        },
+        github: function () {
+          appendLine("Opening GitHub profile...", "dim");
+          window.open(GITHUB_URL, "_blank", "noopener,noreferrer");
+        },
+        linkedin: function () {
+          appendLine("Opening LinkedIn profile...", "dim");
+          window.open(LINKEDIN_URL, "_blank", "noopener,noreferrer");
+        },
+        clear: function () {
+          log.innerHTML = "";
+          translatableRegistry = [];
+        },
+        sudo: function () {
+          appendLine("Permission denied: guest is not in the sudoers file.", "err");
+          appendLine("This incident will be reported.", "dim");
+        }
+      };
+
+      function runCommand(raw) {
+        var trimmed = raw.trim();
+        appendEcho(raw);
+        if (trimmed.length === 0) {
+          return;
+        }
+        var name = trimmed.toLowerCase().split(/\s+/)[0];
+        if (commands.hasOwnProperty(name)) {
+          commands[name]();
+        } else {
+          appendLine("command not found: " + escapeHtml(name) + " &mdash; type 'help'", "err");
+        }
+      }
+
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          var val = input.value;
+          input.value = "";
+          runCommand(val);
+        }
+      });
+
+      document.querySelectorAll(".btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var cmd = btn.getAttribute("data-cmd");
+          input.focus();
+          runCommand(cmd);
+        });
+      });
+
+      document.getElementById("screen").addEventListener("click", function () {
+        input.focus();
+      });
+    })();
+  </script>
+</body>
+
+</html>
